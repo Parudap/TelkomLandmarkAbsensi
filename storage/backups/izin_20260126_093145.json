@@ -1,0 +1,24 @@
+[
+    {
+        "id": 5,
+        "user_id": 41,
+        "jenis_izin": "tidak_masuk",
+        "tanggal_mulai": "2026-01-25T17:00:00.000000Z",
+        "tanggal_selesai": "2026-01-27T17:00:00.000000Z",
+        "tanggal": null,
+        "jam_pulang_diajukan": null,
+        "alasan": "Sakit",
+        "bukti_file": "bukti_izin\/q2Y8vf8sTUXNHvlGrbbw1J8IA34kkMNbhOQVhh7C.png",
+        "status_approval": "pending",
+        "approved_by_ketua": null,
+        "approved_at_ketua": null,
+        "keterangan_ketua": null,
+        "approved_by_hr": null,
+        "approved_at_hr": null,
+        "keterangan_hr": null,
+        "auto_approved_ketua_at": null,
+        "auto_approved_hr_at": null,
+        "created_at": "2026-01-24T09:17:30.000000Z",
+        "updated_at": "2026-01-24T09:17:30.000000Z"
+    }
+]
