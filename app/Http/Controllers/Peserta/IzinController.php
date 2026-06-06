@@ -42,7 +42,12 @@ class IzinController extends Controller
     public function create()
     {
         $today = TimeService::today()->format('Y-m-d');
-        return view('peserta.izin.create')->with(['today' => $today]);
+        $tomorrow = TimeService::today()->copy()->addDay()->format('Y-m-d');
+
+        return view('peserta.izin.create')->with([
+            'today' => $today,
+            'tomorrow' => $tomorrow,
+        ]);
     }
 
     public function store(Request $request)
@@ -73,12 +78,13 @@ class IzinController extends Controller
         // Prevent 'tidak_masuk' being applied for today — use 'pulang_cepat' for same-day requests
         if ($request->jenis_izin == 'tidak_masuk') {
             $today = TimeService::today()->startOfDay();
+            $tomorrow = $today->copy()->addDay();
             $start = Carbon::parse($request->tanggal_mulai)->startOfDay();
             $end = Carbon::parse($request->tanggal_selesai)->startOfDay();
 
-            if ($start->lte($today) && $end->gte($today)) {
+            if ($start->lt($tomorrow) || $end->lt($tomorrow)) {
                 return back()->with('error', 
-                    'Izin "Tidak Masuk" tidak dapat diajukan untuk hari ini. Gunakan "Pulang Cepat" untuk hari ini.'
+                    'Izin "Tidak Masuk" hanya dapat diajukan mulai besok. Gunakan "Pulang Cepat" untuk hari ini.'
                 )->withInput();
             }
         }
