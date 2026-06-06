@@ -60,11 +60,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label id="label-tanggal-mulai" class="block text-gray-700 font-semibold mb-2">Tanggal Mulai <span class="text-red-500">*</span></label>
-                        <input type="date" name="tanggal_mulai" id="tanggal_mulai" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required value="{{ old('tanggal_mulai', $today ?? '') }}" min="{{ $today ?? '' }}">
+                        <input type="date" name="tanggal_mulai" id="tanggal_mulai" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required value="{{ old('tanggal_mulai', $tomorrow ?? $today ?? '') }}" min="{{ $tomorrow ?? $today ?? '' }}">
                     </div>
                     <div id="tanggal-selesai-wrapper">
                         <label class="block text-gray-700 font-semibold mb-2">Tanggal Selesai <span class="text-red-500">*</span></label>
-                        <input type="date" name="tanggal_selesai" id="tanggal_selesai" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required value="{{ old('tanggal_selesai', $today ?? '') }}" min="{{ $today ?? '' }}">
+                        <input type="date" name="tanggal_selesai" id="tanggal_selesai" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required value="{{ old('tanggal_selesai', $tomorrow ?? $today ?? '') }}" min="{{ $tomorrow ?? $today ?? '' }}">
                     </div>
                 </div>
                 <div id="tips-izin-1hari" class="mt-3 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
@@ -188,12 +188,7 @@
     const tanggalMulaiInput = document.querySelector('input[name="tanggal_mulai"]');
     const tanggalSelesaiInput = document.querySelector('input[name="tanggal_selesai"]');
     const today = '{{ $today ?? "" }}';
-
-    function getTomorrowISO() {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        return d.toISOString().slice(0,10);
-    }
+    const tomorrow = '{{ $tomorrow ?? "" }}';
 
     function updateTipsBox() {
         const jenisIzin = document.querySelector('input[name="jenis_izin"]:checked');
@@ -229,7 +224,6 @@
                 tanggalMulaiInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
                 // if selecting tidak_masuk, set min to tomorrow to prevent same-day 'tidak_masuk'
                 if (this.value === 'tidak_masuk') {
-                    const tomorrow = getTomorrowISO();
                     tanggalMulaiInput.min = tomorrow;
                     tanggalSelesaiInput.min = tomorrow;
                     if (new Date(tanggalMulaiInput.value) < new Date(tomorrow)) {
@@ -258,9 +252,12 @@
         tanggalMulaiInput.min = today;
         tanggalSelesaiInput.min = today;
     } else if (initialJenisIzin && initialJenisIzin.value === 'tidak_masuk') {
-        const tomorrow = getTomorrowISO();
         tanggalMulaiInput.min = tomorrow;
         tanggalSelesaiInput.min = tomorrow;
+        if (!tanggalMulaiInput.value || new Date(tanggalMulaiInput.value) < new Date(tomorrow)) {
+            tanggalMulaiInput.value = tomorrow;
+            tanggalSelesaiInput.value = tomorrow;
+        }
     }
     
     // Sync tanggal_selesai dengan tanggal_mulai untuk pulang_cepat
