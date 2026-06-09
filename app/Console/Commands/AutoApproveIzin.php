@@ -84,6 +84,7 @@ class AutoApproveIzin extends Command
 
                     $absensi->jam_pulang = $jamPulangIzin;
                     $absensi->status_harian = 'IZIN_PULANG_CEPAT';
+                    $absensi->status = 'IZIN_PULANG_CEPAT';
                     $absensi->durasi_kerja = $durasiMenit;
                     $absensi->izin_id = $izin->id;
                     $absensi->catatan_sistem = 'Izin pulang cepat disetujui otomatis pada jam ' . $izin->jam_pulang_diajukan;
@@ -93,6 +94,7 @@ class AutoApproveIzin extends Command
                 // Jika status ALPHA (sudah di-autoclose sebelumnya) - backfill to IZIN_PULANG_CEPAT
                 elseif ($absensi->status_harian == 'ALPHA') {
                     $absensi->status_harian = 'IZIN_PULANG_CEPAT';
+                    $absensi->status = 'IZIN_PULANG_CEPAT';
                     $absensi->izin_id = $izin->id;
                     $absensi->catatan_sistem = 'Izin pulang cepat disetujui otomatis (backfilled dari ALPHA)';
                     $absensi->save();

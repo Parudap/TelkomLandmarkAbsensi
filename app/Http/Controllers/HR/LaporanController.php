@@ -34,7 +34,7 @@ class LaporanController extends Controller
             $absensi = \App\Models\Absensi::create([
                 'user_id' => $request->user_id,
                 'tanggal' => $request->tanggal,
-                // status mengikuti default DB, status_harian akan di-set di bawah.
+                // set created/updated time now; status will be set below
                 'created_at' => TimeService::now(),
                 'updated_at' => TimeService::now(),
             ]);
@@ -98,8 +98,16 @@ class LaporanController extends Controller
             if ($absensi->catatan_sistem && str_contains(strtolower($absensi->catatan_sistem), 'izin')) {
                 $absensi->catatan_sistem = null;
             }
+            // Ensure legacy `status` kept in sync with `status_harian`, but don't write invalid enum values like BELUM_FINAL
+            if ($absensi->status_harian !== 'BELUM_FINAL') {
+                $absensi->status = $absensi->status_harian;
+            }
         } else {
             $absensi->status_harian = $request->status_harian;
+            // Keep legacy `status` in sync when it's a permitted value (avoid BELUM_FINAL)
+            if ($request->status_harian !== 'BELUM_FINAL') {
+                $absensi->status = $request->status_harian;
+            }
         }
 
         $absensi->save();
@@ -667,11 +675,13 @@ class LaporanController extends Controller
             'bidang_id' => 'nullable|exists:bidang,id',
             'tanggal_mulai' => 'required|date',
             'tanggal_selesai' => 'required|date',
+            'status_harian' => 'nullable|in:HADIR_TEPAT_WAKTU,HADIR_TELAT,ALPHA,IZIN_TIDAK_MASUK,IZIN_PULANG_CEPAT',
         ]);
 
         $bidangId = $request->bidang_id;
         $tanggalMulai = $request->tanggal_mulai;
         $tanggalSelesai = $request->tanggal_selesai;
+        $statusHarian = $request->status_harian;
 
         $query = Absensi::with(['user.bidang'])
             ->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai]);
@@ -680,6 +690,10 @@ class LaporanController extends Controller
             $query->whereHas('user', function($q) use ($bidangId) {
                 $q->where('bidang_id', $bidangId);
             });
+        }
+
+        if ($statusHarian) {
+            $query->where('status_harian', $statusHarian);
         }
 
         $absensiData = $query->orderBy('tanggal', 'desc')->get();

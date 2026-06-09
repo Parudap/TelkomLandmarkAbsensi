@@ -19,6 +19,29 @@ class DashboardController extends Controller
         // Centralized time provider (supports .env testing mode and cache override)
         return TimeService::now();
     }
+
+    private function resolveApprovedIzinTidakMasukToday($user, $today)
+    {
+        $absensiToday = Absensi::where('user_id', $user->id)
+            ->whereDate('tanggal', $today)
+            ->first();
+
+        if ($absensiToday && !in_array($absensiToday->status_harian, ['IZIN_TIDAK_MASUK', 'IZIN_PULANG_CEPAT'])) {
+            return null;
+        }
+
+        return Izin::where('user_id', $user->id)
+            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
+            ->where('jenis_izin', '!=', 'pulang_cepat')
+            ->where(function ($q) use ($today) {
+                $q->whereDate('tanggal', $today)
+                  ->orWhere(function ($sub) use ($today) {
+                      $sub->whereDate('tanggal_mulai', '<=', $today)
+                          ->whereDate('tanggal_selesai', '>=', $today);
+                  });
+            })
+            ->first();
+    }
     
     public function index()
     {
@@ -30,6 +53,7 @@ class DashboardController extends Controller
         $today = $now->copy()->startOfDay();
         $thisMonth = $now->month;
         $thisYear = $now->year;
+        $isWeekend = $today->isWeekend();
 
         // Absensi hari ini
         $absensiToday = Absensi::where('user_id', $user->id)
@@ -165,17 +189,7 @@ class DashboardController extends Controller
             ->first();
 
         // Cek apakah ada izin TIDAK MASUK yang disetujui untuk hari ini (EXCLUDE pulang_cepat)
-        $hasIzinToday = Izin::where('user_id', $user->id)
-            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
-            ->where('jenis_izin', '!=', 'pulang_cepat')
-            ->where(function($q) use ($today) {
-                $q->whereDate('tanggal', $today)
-                  ->orWhere(function($sub) use ($today) {
-                      $sub->whereDate('tanggal_mulai', '<=', $today)
-                          ->whereDate('tanggal_selesai', '>=', $today);
-                  });
-            })
-            ->first();
+        $hasIzinToday = $this->resolveApprovedIzinTidakMasukToday($user, $today);
 
         return view('peserta.dashboard', compact(
             'user',
@@ -193,7 +207,8 @@ class DashboardController extends Controller
             'totalHariKerja' => $totalHariKerja,
             'hariKerjaBerlalu' => $hariKerjaBerlalu,
             'sisaHariKerja' => $sisaHariKerja,
-            'progressPersen' => $progressPersen
+            'progressPersen' => $progressPersen,
+            'isWeekend' => $isWeekend
         ]);
     }
 }

@@ -14,8 +14,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class AbsensiController extends Controller
 {
-    const LATITUDE = -7.057808;
-    const LONGITUDE = 110.445341;
+    const LATITUDE = -7.057658609410659;
+    const LONGITUDE = 110.4446595953723;
     const MAX_RADIUS_METERS = 50;
     const JAM_MASUK_STANDAR = '08:00:00';
     const JAM_PULANG_STANDAR = '17:00:00';
@@ -30,6 +30,29 @@ class AbsensiController extends Controller
         $currentTime = TimeService::now();
         $this->autoCloseSkippedDates($currentTime);
         return $currentTime;
+    }
+
+    private function resolveApprovedIzinTidakMasukToday($user, $today)
+    {
+        $absensiToday = Absensi::where('user_id', $user->id)
+            ->whereDate('tanggal', $today)
+            ->first();
+
+        if ($absensiToday && !in_array($absensiToday->status_harian, ['IZIN_TIDAK_MASUK', 'IZIN_PULANG_CEPAT'])) {
+            return null;
+        }
+
+        return Izin::where('user_id', $user->id)
+            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
+            ->where('jenis_izin', '!=', 'pulang_cepat')
+            ->where(function ($q) use ($today) {
+                $q->whereDate('tanggal', $today)
+                  ->orWhere(function ($sub) use ($today) {
+                      $sub->whereDate('tanggal_mulai', '<=', $today)
+                          ->whereDate('tanggal_selesai', '>=', $today);
+                  });
+            })
+            ->first();
     }
     
     public function autoCloseSkippedDates($currentTestTime)
@@ -80,6 +103,7 @@ class AbsensiController extends Controller
                         'tanggal' => $checkDate->copy(),
                         'jam_masuk' => null,
                         'jam_pulang' => null,
+                        'status' => 'ALPHA',
                         'status_harian' => 'ALPHA',
                         'catatan_sistem' => 'Auto-closed: Tidak hadir pada ' . $checkDate->format('d/m/Y'),
                     ]);
@@ -88,6 +112,7 @@ class AbsensiController extends Controller
                 // Jika hanya absen masuk (belum absen pulang) dan sudah lewat jam 23:59
                 if ($absensi && $absensi->jam_masuk && !$absensi->jam_pulang && !$hasIzin && $now->greaterThan($jam2359)) {
                     $absensi->update([
+                        'status' => 'ALPHA',
                         'status_harian' => 'ALPHA',
                         'catatan_sistem' => 'Auto-closed: Tidak absen pulang pada ' . $checkDate->format('d/m/Y'),
                     ]);
@@ -129,17 +154,7 @@ class AbsensiController extends Controller
         }
         
         // Cek apakah ada izin TIDAK MASUK yang disetujui untuk hari ini (EXCLUDE pulang_cepat)
-        $hasIzin = Izin::where('user_id', $user->id)
-            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
-            ->where('jenis_izin', '!=', 'pulang_cepat')
-            ->where(function($q) use ($today) {
-                $q->whereDate('tanggal', $today)
-                  ->orWhere(function($sub) use ($today) {
-                      $sub->whereDate('tanggal_mulai', '<=', $today)
-                          ->whereDate('tanggal_selesai', '>=', $today);
-                  });
-            })
-            ->first();
+        $hasIzin = $this->resolveApprovedIzinTidakMasukToday($user, $today);
         
         if ($hasIzin) {
             $jenisIzin = ucwords(str_replace('_', ' ', $hasIzin->jenis_izin));
@@ -151,7 +166,7 @@ class AbsensiController extends Controller
             ->whereDate('tanggal', $today)
             ->first();
             
-        if ($existing) {
+        if ($existing && $existing->jam_masuk) {
             return redirect()->route('peserta.dashboard')
                 ->with('error', 'Anda sudah melakukan absensi masuk hari ini pada jam ' . Carbon::parse($existing->jam_masuk)->format('H:i'));
         }
@@ -178,17 +193,7 @@ class AbsensiController extends Controller
         }
 
         // Cek apakah ada izin TIDAK MASUK yang disetujui untuk hari ini (EXCLUDE pulang_cepat)
-        $hasIzin = Izin::where('user_id', $user->id)
-            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
-            ->where('jenis_izin', '!=', 'pulang_cepat')
-            ->where(function($q) use ($today) {
-                $q->whereDate('tanggal', $today)
-                  ->orWhere(function($sub) use ($today) {
-                      $sub->whereDate('tanggal_mulai', '<=', $today)
-                          ->whereDate('tanggal_selesai', '>=', $today);
-                  });
-            })
-            ->first();
+        $hasIzin = $this->resolveApprovedIzinTidakMasukToday($user, $today);
         
         if ($hasIzin) {
             $jenisIzin = ucwords(str_replace('_', ' ', $hasIzin->jenis_izin));
@@ -199,7 +204,7 @@ class AbsensiController extends Controller
             ->whereDate('tanggal', $today)
             ->first();
 
-        if ($existing) {
+        if ($existing && $existing->jam_masuk) {
             return back()->with('error', 'Anda sudah absensi masuk hari ini.');
         }
 
@@ -215,18 +220,30 @@ class AbsensiController extends Controller
         $jamMasuk = $now->format('H:i:s');
         $statusMasuk = ($jamMasuk <= self::JAM_MASUK_STANDAR) ? 'TEPAT_WAKTU' : 'TELAT';
 
-        Absensi::create([
-            'user_id' => $user->id,
-            'tanggal' => $today,
-            'jam_masuk' => $now,
-            'foto_masuk' => $fotoPath,
-            'latitude_masuk' => $request->latitude,
-            'longitude_masuk' => $request->longitude,
-            'status_masuk' => $statusMasuk,
-            'status_harian' => 'BELUM_FINAL',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        if ($existing) {
+            $existing->update([
+                'jam_masuk' => $now,
+                'foto_masuk' => $fotoPath,
+                'latitude_masuk' => $request->latitude,
+                'longitude_masuk' => $request->longitude,
+                'status_masuk' => $statusMasuk,
+                'status_harian' => 'BELUM_FINAL',
+                'updated_at' => $now,
+            ]);
+        } else {
+            Absensi::create([
+                'user_id' => $user->id,
+                'tanggal' => $today,
+                'jam_masuk' => $now,
+                'foto_masuk' => $fotoPath,
+                'latitude_masuk' => $request->latitude,
+                'longitude_masuk' => $request->longitude,
+                'status_masuk' => $statusMasuk,
+                'status_harian' => 'BELUM_FINAL',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
 
         $message = $statusMasuk === 'TEPAT_WAKTU' 
             ? 'Absensi masuk berhasil! Selamat bekerja!' 
@@ -249,6 +266,11 @@ class AbsensiController extends Controller
             return redirect()->route('peserta.dashboard')
                 ->with('error', 'Anda belum absensi masuk hari ini.');
         }
+
+        if (!$absensi->jam_masuk) {
+            return redirect()->route('peserta.dashboard')
+                ->with('error', 'Anda belum absensi masuk hari ini.');
+        }
         
         if ($absensi->jam_pulang) {
             $message = 'Anda sudah absensi pulang hari ini.';
@@ -263,17 +285,7 @@ class AbsensiController extends Controller
         }
         
         // Cek apakah ada izin TIDAK MASUK yang disetujui untuk hari ini (EXCLUDE pulang_cepat)
-        $hasIzinTidakMasuk = Izin::where('user_id', $user->id)
-            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
-            ->where('jenis_izin', '!=', 'pulang_cepat')
-            ->where(function($q) use ($today) {
-                $q->whereDate('tanggal', $today)
-                  ->orWhere(function($sub) use ($today) {
-                      $sub->whereDate('tanggal_mulai', '<=', $today)
-                          ->whereDate('tanggal_selesai', '>=', $today);
-                  });
-            })
-            ->first();
+        $hasIzinTidakMasuk = $this->resolveApprovedIzinTidakMasukToday($user, $today);
         
         if ($hasIzinTidakMasuk) {
             $jenisIzin = ucwords(str_replace('_', ' ', $hasIzinTidakMasuk->jenis_izin));
@@ -342,17 +354,7 @@ class AbsensiController extends Controller
         }
 
         // Cek apakah ada izin TIDAK MASUK yang disetujui untuk hari ini (EXCLUDE pulang_cepat)
-        $hasIzinTidakMasuk = Izin::where('user_id', $user->id)
-            ->whereIn('status_approval', ['approved_hr', 'auto_approved'])
-            ->where('jenis_izin', '!=', 'pulang_cepat')
-            ->where(function($q) use ($today) {
-                $q->whereDate('tanggal', $today)
-                  ->orWhere(function($sub) use ($today) {
-                      $sub->whereDate('tanggal_mulai', '<=', $today)
-                          ->whereDate('tanggal_selesai', '>=', $today);
-                  });
-            })
-            ->first();
+        $hasIzinTidakMasuk = $this->resolveApprovedIzinTidakMasukToday($user, $today);
         
         if ($hasIzinTidakMasuk) {
             $jenisIzin = ucwords(str_replace('_', ' ', $hasIzinTidakMasuk->jenis_izin));
@@ -455,6 +457,7 @@ class AbsensiController extends Controller
             'latitude_pulang' => $request->latitude,
             'longitude_pulang' => $request->longitude,
             'durasi_kerja' => $durasiMenit,
+            'status' => $statusHarianFinal,
             'status_harian' => $statusHarianFinal,
         ]);
 

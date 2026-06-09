@@ -125,7 +125,9 @@
                             </div>
                         </div>
                     </div>
-                    @if(!$absensiToday->jam_pulang)
+                    @if(!$isWeekend && !$absensiToday->jam_masuk && !$hasIzinToday)
+                        <a href="{{ route('peserta.absensi.masuk') }}" class="w-full px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg shadow hover:bg-red-700 transition text-center">Absen Masuk</a>
+                    @elseif(!$isWeekend && $absensiToday->jam_masuk && !$absensiToday->jam_pulang)
                         @if($izinPulangCepatToday)
                         <div class="mb-2 bg-orange-50 border border-orange-200 rounded-lg p-2.5">
                             <p class="text-xs text-orange-800">
@@ -139,11 +141,13 @@
                     @endif
                 @elseif(!$hasIzinToday)
                     <div class="flex-1 flex flex-col justify-center">
-                        <p class="text-gray-500 text-center mb-4">BELUM FINAL</p>
+                        <p class="text-gray-500 text-center mb-4">{{ $isWeekend ? 'LIBUR' : 'BELUM FINAL' }}</p>
                     </div>
+                    @if(!$isWeekend)
                     <a href="{{ route('peserta.absensi.masuk') }}" class="w-full px-4 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg shadow hover:bg-red-700 transition text-center">
                         Absen Masuk
                     </a>
+                    @endif
                 @else
                     <div class="flex-1 flex flex-col justify-center">
                         <div class="text-center">
@@ -195,7 +199,7 @@
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Menu Cepat</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             @if(!$hasIzinToday)
-                @if(!$absensiToday)
+                @if(!$isWeekend && (!$absensiToday || !$absensiToday->jam_masuk))
                 <a href="{{ route('peserta.absensi.masuk') }}" class="flex flex-col items-center justify-center p-4 bg-red-50 rounded-xl hover:bg-red-100 transition duration-300 border border-red-100 group">
                     <div class="p-3 bg-red-100 rounded-full mb-3 group-hover:bg-red-200 transition">
                         <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +208,7 @@
                     </div>
                     <span class="font-medium text-gray-900">Absen Masuk</span>
                 </a>
-                @elseif(!$absensiToday->jam_pulang && $absensiToday->status_harian !== 'IZIN_TIDAK_MASUK')
+                @elseif(!$isWeekend && $absensiToday->jam_masuk && !$absensiToday->jam_pulang && $absensiToday->status_harian !== 'IZIN_TIDAK_MASUK')
                 <a href="{{ route('peserta.absensi.pulang') }}" class="flex flex-col items-center justify-center p-4 bg-green-50 rounded-xl hover:bg-green-100 transition duration-300 border border-green-100 group">
                     <div class="p-3 bg-green-100 rounded-full mb-3 group-hover:bg-green-200 transition">
                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,7 +224,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                         </svg>
                     </div>
-                    <span class="font-medium text-gray-500">Sudah Absen</span>
+                    <span class="font-medium text-gray-500">{{ $isWeekend ? 'Tidak ada absen di hari libur' : 'Sudah Absen' }}</span>
                 </div>
                 @endif
             @endif

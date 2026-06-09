@@ -20,43 +20,46 @@
         </div>
         <!-- Filter -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <form id="filterForm" action="{{ route('hr.laporan.peserta') }}" method="GET" class="flex gap-4 items-end flex-wrap">
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-gray-700 text-sm font-semibold mb-2">Cari Nama/Email</label>
-                    <input type="text" name="search_name" placeholder="Cari nama atau email..." value="{{ $searchName ?? '' }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-gray-700 text-sm font-semibold mb-2">Filter Bidang</label>
-                    <select name="bidang_id" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Semua Bidang</option>
-                        @foreach($bidangList as $bidang)
-                            <option value="{{ $bidang->id }}" {{ $bidangId == $bidang->id ? 'selected' : '' }}>
-                                {{ $bidang->nama_bidang }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                    <label class="block text-gray-700 text-sm font-semibold mb-2">Status Peserta</label>
-                    <select name="is_active" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Semua Status</option>
-                        <option value="1" {{ (isset($isActive) && $isActive === "1") ? 'selected' : '' }}>Aktif</option>
-                        <option value="0" {{ (isset($isActive) && $isActive === "0") ? 'selected' : '' }}>Tidak Aktif</option>
-                    </select>
-                </div>
-                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold transition">
-                    Cari
-                </button>
-                
-                <!-- Export Button -->
-                <div class="relative">
-                    <button type="button" id="exportBtn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold transition flex items-center gap-2">
+            <div class="flex items-end justify-between gap-4">
+                <form id="filterForm" action="{{ route('hr.laporan.peserta') }}" method="GET" class="flex gap-4 items-end flex-wrap flex-1">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2">Cari Nama/Email</label>
+                        <input id="searchNameInput" type="text" name="search_name" placeholder="Cari nama atau email..." value="{{ $searchName ?? '' }}" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2">Filter Bidang</label>
+                        <select id="bidangFilter" name="bidang_id" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Semua Bidang</option>
+                            @foreach($bidangList as $bidang)
+                                <option value="{{ $bidang->id }}" {{ $bidangId == $bidang->id ? 'selected' : '' }}>
+                                    {{ $bidang->nama_bidang }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-gray-700 text-sm font-semibold mb-2">Status Peserta</label>
+                        <select id="statusPesertaFilter" name="is_active" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="">Semua Status</option>
+                            <option value="1" {{ (isset($isActive) && $isActive === "1") ? 'selected' : '' }}>Aktif</option>
+                            <option value="0" {{ (isset($isActive) && $isActive === "0") ? 'selected' : '' }}>Tidak Aktif</option>
+                        </select>
+                    </div>
+                </form>
+
+                <!-- Export Button aligned to the right (match Absensi style) -->
+                <div class="relative inline-block text-left">
+                    <button type="button" onclick="toggleDropdown()" class="inline-flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-semibold transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         Export
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
                     </button>
-                    <div id="exportMenu" class="hidden absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+
+                    <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                         <div class="py-1">
                             <a href="{{ route('hr.laporan.export.peserta', ['bidang_id' => $bidangId, 'is_active' => $isActive, 'search_name' => $searchName]) }}" class="block px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center gap-3 transition">
                                 <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,7 +82,50 @@
                         </div>
                     </div>
                 </div>
-            </form>
+            </div>
+
+            <script>
+            function toggleDropdown() {
+                const dropdown = document.getElementById('exportDropdown');
+                dropdown.classList.toggle('hidden');
+            }
+
+            // Close dropdown when clicking outside
+            window.addEventListener('click', function(e) {
+                const dropdown = document.getElementById('exportDropdown');
+                const button = e.target.closest('button[onclick*="toggleDropdown"]');
+                if (!button && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            const filterForm = document.getElementById('filterForm');
+            const searchNameInput = document.getElementById('searchNameInput');
+            const bidangFilter = document.getElementById('bidangFilter');
+            const statusPesertaFilter = document.getElementById('statusPesertaFilter');
+            let filterTimeout;
+
+            if (searchNameInput) {
+                searchNameInput.addEventListener('input', function() {
+                    clearTimeout(filterTimeout);
+                    filterTimeout = setTimeout(function() {
+                        filterForm.submit();
+                    }, 400);
+                });
+            }
+
+            if (bidangFilter) {
+                bidangFilter.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+
+            if (statusPesertaFilter) {
+                statusPesertaFilter.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+            </script>
         </div>
 
         <!-- Summary Cards -->
